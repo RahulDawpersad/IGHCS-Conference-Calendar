@@ -55,15 +55,15 @@ app.post('/payfast-notify', async (req, res) => {
     try {
         const data = req.body;
         console.log('Received PayFast ITN:', data); // Log incoming data
-        
+
         // Verify the signature
         const calculatedSignature = generatePayfastSignature(data, config.payfast.passphrase);
-        
+
         if (data.signature !== calculatedSignature) {
             console.error('Invalid signature received from PayFast');
             return res.status(400).send('Invalid signature');
         }
-        
+
         // Check payment status
         if (data.payment_status === 'COMPLETE') {
             // Payment was successful - decompress the data
@@ -74,22 +74,22 @@ app.post('/payfast-notify', async (req, res) => {
                 console.error('Error parsing custom_str1:', e);
                 return res.status(400).send('Invalid custom data');
             }
-            
+
             const bookingDetails = await decompressBookingData(compressedData);
-            
+
             // Add additional details from PayFast response
             bookingDetails.paymentDate = new Date().toISOString();
             bookingDetails.paymentReference = data.pf_payment_id;
-            
+
             // Send confirmation emails
             await sendConfirmationEmails(bookingDetails);
-            
+
             // Send Pushover notification
             await sendPushoverNotification(bookingDetails);
-            
+
             console.log('Successfully processed payment and sent notifications');
         }
-        
+
         res.status(200).send('OK');
     } catch (error) {
         console.error('Error processing PayFast notification:', error);
@@ -124,7 +124,7 @@ async function decompressBookingData(compressed) {
             email: compressed.m,
             phone: compressed.p
         };
-        
+
         // In a real implementation, you might want to store the full delegate details
         // in your database before the payment and retrieve them here
     }
@@ -490,13 +490,13 @@ Ref: ${bookingDetails.bookingRef}`;
 app.post('/send-post-payment-notifications', async (req, res) => {
     try {
         const bookingDetails = req.body;
-        
+
         // Send confirmation emails
         await sendConfirmationEmails(bookingDetails);
-        
+
         // Send Pushover notification
         await sendPushoverNotification(bookingDetails);
-        
+
         res.json({ success: true, message: 'Notifications sent successfully' });
     } catch (error) {
         console.error('Error sending post-payment notifications:', error);
