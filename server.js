@@ -96,6 +96,7 @@ app.post('/payfast-notify', async (req, res) => {
         res.status(500).send('Error processing notification');
     }
 });
+
 async function decompressBookingData(compressed) {
     // Reconstruct the full booking details
     const bookingDetails = {
@@ -111,6 +112,19 @@ async function decompressBookingData(compressed) {
         bookingType: compressed.t === 'i' ? 'individual' : 'company'
     };
 
+    // Add formatted date
+    if (bookingDetails.event.date) {
+        const eventDate = new Date(bookingDetails.event.date);
+        bookingDetails.formattedDate = eventDate.toLocaleDateString('en-ZA', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } else {
+        bookingDetails.formattedDate = 'Date not specified';
+    }
+
     if (compressed.t === 'i') {
         bookingDetails.customer = {
             firstName: compressed.f,
@@ -122,7 +136,8 @@ async function decompressBookingData(compressed) {
         bookingDetails.company = {
             name: compressed.n,
             email: compressed.m,
-            phone: compressed.p
+            phone: compressed.p,
+            vatNumber: compressed.v || null // Add VAT number
         };
 
         // In a real implementation, you might want to store the full delegate details
@@ -177,6 +192,14 @@ async function sendConfirmationEmails(bookingDetails) {
 
 // Send email to individual customer
 async function sendIndividualEmail(bookingDetails) {
+    const eventDate = new Date(bookingDetails.event.date);
+    const formattedDate = eventDate.toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
     const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(
         `EVENT:${bookingDetails.event.title}|NAME:${bookingDetails.customer.firstName} ${bookingDetails.customer.lastName}|REF:${bookingDetails.bookingRef}|DATE:${bookingDetails.formattedDate}`
     )}&size=200`;
@@ -207,7 +230,7 @@ async function sendIndividualEmail(bookingDetails) {
                         <p>Hello <strong>${bookingDetails.customer.firstName} ${bookingDetails.customer.lastName}</strong>,</p>
                         <p>Your booking for <strong>${bookingDetails.event.title}</strong> has been confirmed.</p>
                         <p><span class="highlight">Event:</span> ${bookingDetails.event.title}</p>
-                        <p><span class="highlight">Date:</span> ${bookingDetails.formattedDate} at ${bookingDetails.event.time}</p>
+                        <p><span class="highlight">Date:</span> ${formattedDate} at ${bookingDetails.event.time}</p>
                         <p><span class="highlight">Tickets:</span> ${bookingDetails.ticketQuantity}</p>
                         <p><span class="highlight">Total:</span> R ${bookingDetails.total.toLocaleString('en-ZA')}</p>
                         <p><span class="highlight">Booking Reference:</span> ${bookingDetails.bookingRef}</p>
@@ -235,6 +258,13 @@ async function sendIndividualEmail(bookingDetails) {
 
 // Send email to company
 async function sendCompanyEmail(bookingDetails) {
+    const eventDate = new Date(bookingDetails.event.date);
+    const formattedDate = eventDate.toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
     const emailContent = `
         <html>
             <head>
@@ -258,7 +288,10 @@ async function sendCompanyEmail(bookingDetails) {
                         <p>Hello <strong>${bookingDetails.company.name}</strong>,</p>
                         <p>Your company booking for <strong>${bookingDetails.event.title}</strong> has been confirmed.</p>
                         <p><span class="highlight">Event:</span> ${bookingDetails.event.title}</p>
-                        <p><span class="highlight">Date:</span> ${bookingDetails.formattedDate} at ${bookingDetails.event.time}</p>
+                          <div class="detail-row">
+                <span class="detail-label">Date & Time</span>
+                ${formattedDate} at ${bookingDetails.event.time}
+            </div>
                         <p><span class="highlight">Tickets:</span> ${bookingDetails.ticketQuantity}</p>
                         <p><span class="highlight">Total:</span> R ${bookingDetails.total.toLocaleString('en-ZA')}</p>
                         <p><span class="highlight">Booking Reference:</span> ${bookingDetails.bookingRef}</p>
@@ -279,6 +312,13 @@ async function sendCompanyEmail(bookingDetails) {
 
 // Send emails to delegates
 async function sendDelegateEmails(bookingDetails) {
+    const eventDate = new Date(bookingDetails.event.date);
+    const formattedDate = eventDate.toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
     for (const delegate of bookingDetails.delegates) {
         const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(
             `EVENT:${bookingDetails.event.title}|NAME:${delegate.firstName} ${delegate.lastName}|ID:${delegate.id}|REF:${bookingDetails.bookingRef}`
@@ -310,7 +350,10 @@ async function sendDelegateEmails(bookingDetails) {
                             <p>Hello <strong>${delegate.firstName} ${delegate.lastName}</strong>,</p>
                             <p>Your delegate registration for <strong>${bookingDetails.event.title}</strong> has been confirmed.</p>
                             <p><span class="highlight">Event:</span> ${bookingDetails.event.title}</p>
-                            <p><span class="highlight">Date:</span> ${bookingDetails.formattedDate} at ${bookingDetails.event.time}</p>
+                            <div class="detail-row">
+                <span class="detail-label">Date & Time</span>
+                ${formattedDate} at ${bookingDetails.event.time}
+            </div>
                             <p><span class="highlight">Booking Reference:</span> ${bookingDetails.bookingRef}</p>
                             <p><span class="highlight">Delegate ID:</span> ${delegate.id}</p>
                         </div>
@@ -338,6 +381,14 @@ async function sendDelegateEmails(bookingDetails) {
 
 // Send business notification
 async function sendBusinessNotification(bookingDetails) {
+    const eventDate = new Date(bookingDetails.event.date);
+    const formattedDate = eventDate.toLocaleDateString('en-ZA', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+
     let emailContent = `
         <html>
             <head>
@@ -370,10 +421,11 @@ async function sendBusinessNotification(bookingDetails) {
                                 <span class="detail-label">Event Name</span>
                                 ${bookingDetails.event.title}
                             </div>
+                           
                             <div class="detail-row">
-                                <span class="detail-label">Date & Time</span>
-                                ${bookingDetails.formattedDate} at ${bookingDetails.event.time}
-                            </div>
+                <span class="detail-label">Date & Time</span>
+                ${formattedDate} at ${bookingDetails.event.time}
+            </div>
                             <div class="detail-row">
                                 <span class="detail-label">Venue</span>
                                 ${bookingDetails.event.venue}
