@@ -371,6 +371,10 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // Add individual delegate with proper numbering
     function addDelegateFields() {
+        // First, save all current delegate values
+        saveCurrentDelegateValues();
+
+        // Then add new delegate
         const newDelegate = {
             name: '',
             email: '',
@@ -397,6 +401,22 @@ document.addEventListener('DOMContentLoaded', function () {
             const input = document.getElementById(newDelegateId);
             if (input) input.focus();
         }, 100);
+    }
+
+    function saveCurrentDelegateValues() {
+        // Get all currently rendered delegate fields
+        const delegateElements = document.querySelectorAll('.delegate-fields');
+
+        delegateElements.forEach(element => {
+            const displayNumber = element.getAttribute('data-index');
+            const delegate = allDelegates.find(d => d.displayNumber == displayNumber);
+
+            if (delegate) {
+                delegate.name = document.getElementById(`delegateName${displayNumber}`)?.value || '';
+                delegate.email = document.getElementById(`delegateEmail${displayNumber}`)?.value || '';
+                delegate.phone = document.getElementById(`delegatePhone${displayNumber}`)?.value || '';
+            }
+        });
     }
 
 
@@ -524,11 +544,11 @@ document.addEventListener('DOMContentLoaded', function () {
         updatePaginationControls();
     }
 
-    function createDelegateElement(delegate, index) {
+    function createDelegateElement(delegate) {
         const delegateFields = document.createElement('div');
         delegateFields.className = 'delegate-fields';
         delegateFields.setAttribute('data-index', delegate.displayNumber);
-
+    
         delegateFields.innerHTML = `
             <h4>Delegate #${delegate.displayNumber}</h4>
             <button type="button" class="btn btn-icon remove-delegate" title="Remove delegate">
@@ -550,14 +570,13 @@ document.addEventListener('DOMContentLoaded', function () {
                        value="${delegate.phone}" required>
             </div>
         `;
-
+    
         delegateFields.querySelector('.remove-delegate').addEventListener('click', () => {
             removeDelegate(delegate.displayNumber);
         });
-
+    
         return delegateFields;
     }
-
 
     // New function to remove a delegate
     // Improved delegate removal with proper renumbering
@@ -873,11 +892,11 @@ document.addEventListener('DOMContentLoaded', function () {
     function completeBooking(paymentMethod) {
         const bookingRef = 'EC-' + Math.random().toString(36).substr(2, 8).toUpperCase();
         const bookingType = document.querySelector('input[name="bookingType"]:checked').value;
-
         // Set basic confirmation details
         document.getElementById('bookingReference').textContent = bookingRef;
         document.getElementById('confirmationEventName').textContent = currentEvent.title;
 
+        // Format the date for display
         const eventDate = new Date(currentEvent.date);
         const formattedDate = eventDate.toLocaleDateString('en-ZA', {
             weekday: 'long',
@@ -897,13 +916,13 @@ document.addEventListener('DOMContentLoaded', function () {
         const bookingDetails = {
             event: {
                 title: currentEvent.title,
-                date: currentEvent.date,
+                date: currentEvent.date,  // Make sure this is included
                 time: currentEvent.time,
                 venue: currentEvent.venue
             },
             bookingRef,
-            ticketQuantity,
-            total,
+            ticketQuantity: parseInt(document.getElementById('ticketQuantity').value),
+            total: calculateTotal(),
             bookingType
         };
 
@@ -918,7 +937,8 @@ document.addEventListener('DOMContentLoaded', function () {
             bookingDetails.company = {
                 name: document.getElementById('companyName').value.trim(),
                 email: document.getElementById('companyEmail').value.trim(),
-                phone: document.getElementById('companyPhone').value.trim()
+                phone: document.getElementById('companyPhone').value.trim(),
+                vatNumber: document.getElementById('vatNumber').value.trim()
             };
 
             // Store only essential delegate info
@@ -951,16 +971,26 @@ document.addEventListener('DOMContentLoaded', function () {
         // }
     }
 
+    function calculateTotal() {
+        const ticketQuantity = parseInt(document.getElementById('ticketQuantity').value);
+        const subtotal = currentEvent.price * ticketQuantity;
+        return subtotal + (subtotal * 0.15); // Including VAT
+    }
+
     function compressBookingData(bookingDetails) {
         // Create a minimal version of the data
         const compressed = {
             e: bookingDetails.event.title.substring(0, 30), // Shortened event title
+            ed: bookingDetails.event.date || 'Date not specified', // Ensure event date is not undefined
+            et: bookingDetails.event.time || 'Time not specified', // Ensure event time is not undefined
+            ev: bookingDetails.event.venue, // Add event venue
             r: bookingDetails.bookingRef,
             t: bookingDetails.bookingType === 'individual' ? 'i' : 'c',
             q: bookingDetails.ticketQuantity,
             a: bookingDetails.total // Ensure this is always included
         };
 
+        // Add customer or company details
         if (bookingDetails.bookingType === 'individual') {
             compressed.f = bookingDetails.customer.firstName.substring(0, 20);
             compressed.l = bookingDetails.customer.lastName.substring(0, 20);
@@ -970,11 +1000,13 @@ document.addEventListener('DOMContentLoaded', function () {
             compressed.n = bookingDetails.company.name.substring(0, 30);
             compressed.m = bookingDetails.company.email;
             compressed.p = bookingDetails.company.phone;
+            compressed.v = bookingDetails.company.vatNumber || ''; // Add VAT number
             compressed.d = bookingDetails.delegatesCount;
         }
 
         return JSON.stringify(compressed);
     }
+
 
     function getDelegateDetails() {
         const delegates = [];
@@ -1472,7 +1504,7 @@ document.addEventListener('DOMContentLoaded', function () {
         };
     }
 
-``
+    ``
 
     function validateQRCode(scannedData) {
         try {
