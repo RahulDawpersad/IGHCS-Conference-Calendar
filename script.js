@@ -1555,33 +1555,25 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    function sendPushoverNotification(message) {
-        // Pushover API credentials
-        const pushoverToken = 'azevoku82g82r3kd7vtqutixkhiatg'; // Replace with your Pushover application token
-        const pushoverUser = 'un93rpjf7ouqa4af8ewxkvdd37dhau';   // Replace with your Pushover user/group key
-
-        // Pushover API endpoint
-        const url = 'https://api.pushover.net/1/messages.json';
-
-        // Notification data
-        const formData = new FormData();
-        formData.append('token', pushoverToken);
-        formData.append('user', pushoverUser);
-        formData.append('message', message);
-        formData.append('title', 'New Booking Notification');
-        formData.append('sound', 'cashregister'); // Optional notification sound
-
-        // Send the notification
-        fetch(url, {
+    function sendPostPaymentNotifications(bookingDetails) {
+        return fetch('/api/send-post-payment-notifications', {
             method: 'POST',
-            body: formData
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(bookingDetails)
         })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Pushover notification sent:', data);
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) {
+                    throw new Error(data.error || 'Failed to send notifications');
+                }
+                return data;
             })
             .catch(error => {
-                console.error('Error sending Pushover notification:', error);
+                console.error('Notification error:', error);
+                // Consider showing a user-friendly message
+                alert('Payment was successful but we couldn\'t send confirmation emails. Please contact support with your booking reference.');
             });
     }
 
